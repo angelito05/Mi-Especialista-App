@@ -26,10 +26,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -57,14 +53,14 @@ import com.example.miespecialista.ui.theme.GrisTexto
 import com.example.miespecialista.ui.theme.MiEspecialistaTheme
 import com.example.miespecialista.ui.theme.Turquesa
 
-// Modelo de datos para representar la cuenta de usuario registrada
+// Modelo de datos para la cuenta de usuario registrada
 data class UserAccount(
     val fullName: String,
     val email: String,
     val password: String
 )
 
-// Validación de requisitos de contraseña
+// Requisitos de validación de contraseña
 data class PasswordValidationState(
     val hasMinLength: Boolean = false,
     val hasUppercase: Boolean = false,
@@ -86,11 +82,16 @@ fun validatePassword(password: String): PasswordValidationState {
     )
 }
 
+enum class AuthMode {
+    LOGIN,
+    REGISTER
+}
+
 @Composable
 fun AuthScreen(
     modifier: Modifier = Modifier
 ) {
-    // Lista simulada de usuarios registrados en la variable de estado
+    // Lista de usuarios registrados simulados en la aplicación
     var registeredUsers by remember {
         mutableStateOf(
             listOf(
@@ -103,13 +104,12 @@ fun AuthScreen(
         )
     }
 
-    var selectedTab by remember { mutableStateOf(0) } // 0: Iniciar Sesión, 1: Registrarse
+    var authMode by remember { mutableStateOf(AuthMode.LOGIN) }
     var loggedInUser by remember { mutableStateOf<UserAccount?>(null) }
     var prefilledEmail by remember { mutableStateOf("") }
     var successNotification by remember { mutableStateOf<String?>(null) }
 
     if (loggedInUser != null) {
-        // Al iniciar sesión se muestra la aplicación principal con Navbar inferior
         MainAppScreen(
             user = loggedInUser!!,
             onLogout = { loggedInUser = null },
@@ -129,7 +129,7 @@ fun AuthScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Header Logo para servicios técnicos y profesionales (🛠️)
+                // Header Logo
                 Box(
                     modifier = Modifier
                         .size(80.dp)
@@ -153,74 +153,22 @@ fun AuthScreen(
                 )
 
                 Text(
-                    text = if (selectedTab == 0) "Encuentra electricistas, carpinteros y más" else "Crea una cuenta para contratar especialistas",
+                    text = if (authMode == AuthMode.LOGIN) "Encuentra electricistas, carpinteros y más" else "Crea una cuenta para contratar especialistas",
                     style = MaterialTheme.typography.bodyMedium,
                     color = GrisTexto
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Selector de pestañas estilizado
-                TabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = GrisSuave,
-                    contentColor = AzulProfundo,
-                    indicator = { tabPositions ->
-                        if (selectedTab < tabPositions.size) {
-                            TabRowDefaults.SecondaryIndicator(
-                                Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                                color = Turquesa,
-                                height = 3.dp
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                ) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = {
-                            selectedTab = 0
-                            successNotification = null
-                        },
-                        text = {
-                            Text(
-                                "Iniciar Sesión",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedTab == 0) AzulProfundo else GrisTexto
-                            )
-                        }
-                    )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = {
-                            selectedTab = 1
-                            successNotification = null
-                        },
-                        text = {
-                            Text(
-                                "Registrarse",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedTab == 1) AzulProfundo else GrisTexto
-                            )
-                        }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Formulario dinámico
-                if (selectedTab == 0) {
+                // Pantalla condicional (Login o Registro) según la selección del usuario
+                if (authMode == AuthMode.LOGIN) {
                     LoginForm(
                         registeredUsers = registeredUsers,
                         initialEmail = prefilledEmail,
                         successMessage = successNotification,
                         onLoginSuccess = { user -> loggedInUser = user },
                         onSwitchToRegister = {
-                            selectedTab = 1
+                            authMode = AuthMode.REGISTER
                             successNotification = null
                         }
                     )
@@ -228,14 +176,13 @@ fun AuthScreen(
                     RegisterForm(
                         registeredUsers = registeredUsers,
                         onRegisterSuccess = { newUser ->
-                            // Guardado simulado del usuario en la variable registeredUsers
                             registeredUsers = registeredUsers + newUser
                             prefilledEmail = newUser.email
                             successNotification = "¡Registro exitoso para ${newUser.fullName}! Ahora puedes iniciar sesión."
-                            selectedTab = 0 // Redirigir automáticamente a inicio de sesión
+                            authMode = AuthMode.LOGIN // Redirigir a inicio de sesión tras registrarse
                         },
                         onSwitchToLogin = {
-                            selectedTab = 0
+                            authMode = AuthMode.LOGIN
                             successNotification = null
                         }
                     )
@@ -273,15 +220,15 @@ fun LoginForm(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Inicio de Sesión",
-                style = MaterialTheme.typography.titleLarge,
+                text = "Iniciar Sesión",
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = AzulProfundo
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Mensaje de éxito tras registro simulado
+            // Mensaje de éxito tras registro
             AnimatedVisibility(visible = successMessage != null) {
                 successMessage?.let {
                     Card(
@@ -372,7 +319,7 @@ fun LoginForm(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Botón Principal Azul Profundo para validar inicio de sesión simulado
+            // Botón de Iniciar Sesión
             Button(
                 onClick = {
                     when {
@@ -386,7 +333,6 @@ fun LoginForm(
                             errorMessage = "Por favor ingresa tu contraseña."
                         }
                         else -> {
-                            // Buscar el correo en las variables simuladas de registro
                             val foundUser = registeredUsers.find {
                                 it.email.equals(email.trim(), ignoreCase = true)
                             }
@@ -418,14 +364,15 @@ fun LoginForm(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
+            // Enlace interactivo para ir al Formulario de Registro
             TextButton(onClick = onSwitchToRegister) {
                 Text(
                     text = "¿No tienes una cuenta? Regístrate aquí",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Turquesa,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -463,8 +410,8 @@ fun RegisterForm(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Formulario de Registro",
-                style = MaterialTheme.typography.titleLarge,
+                text = "Crear Cuenta",
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = AzulProfundo
             )
@@ -645,7 +592,7 @@ fun RegisterForm(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Botón Registrarse Azul Profundo
+            // Botón de Registro
             Button(
                 onClick = {
                     val cleanEmail = email.trim()
@@ -697,14 +644,15 @@ fun RegisterForm(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
+            // Enlace interactivo para regresar a Iniciar Sesión
             TextButton(onClick = onSwitchToLogin) {
                 Text(
                     text = "¿Ya tienes una cuenta? Inicia sesión",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Turquesa,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
