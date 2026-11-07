@@ -4,12 +4,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.miespecialista.data.model.PasswordValidationState
 import com.example.miespecialista.data.model.UserAccount
 import com.example.miespecialista.data.model.validatePassword
 import com.example.miespecialista.data.repository.AuthRepository
+import kotlinx.coroutines.launch
 
-// ViewModel para gestionar el estado de Autenticación (MVVM)
+// ViewModel para gestionar el estado de Autenticación con llamadas asíncronas a la API (MVVM)
 class AuthViewModel(
     private val authRepository: AuthRepository = AuthRepository()
 ) : ViewModel() {
@@ -117,16 +119,18 @@ class AuthViewModel(
                 errorMessage = "Por favor ingresa tu contraseña."
             }
             else -> {
-                val result = authRepository.loginUser(loginEmail, loginPassword)
-                result.fold(
-                    onSuccess = { user ->
-                        errorMessage = null
-                        loggedInUser = user
-                    },
-                    onFailure = { exception ->
-                        errorMessage = exception.message
-                    }
-                )
+                viewModelScope.launch {
+                    val result = authRepository.loginUser(loginEmail, loginPassword)
+                    result.fold(
+                        onSuccess = { user ->
+                            errorMessage = null
+                            loggedInUser = user
+                        },
+                        onFailure = { exception ->
+                            errorMessage = exception.message
+                        }
+                    )
+                }
             }
         }
     }
@@ -152,27 +156,29 @@ class AuthViewModel(
                 errorMessage = "Las contraseñas no coinciden."
             }
             else -> {
-                val newUser = UserAccount(
-                    fullName = cleanName,
-                    email = cleanEmail,
-                    password = registerPassword
-                )
-                val result = authRepository.registerUser(newUser)
-                result.fold(
-                    onSuccess = { user ->
-                        errorMessage = null
-                        loginEmail = user.email
-                        successNotification = "¡Registro exitoso para ${user.fullName}! Ahora puedes iniciar sesión."
-                        authMode = AuthMode.LOGIN
-                        registerFullName = ""
-                        registerEmail = ""
-                        registerPassword = ""
-                        registerConfirmPassword = ""
-                    },
-                    onFailure = { exception ->
-                        errorMessage = exception.message
-                    }
-                )
+                viewModelScope.launch {
+                    val newUser = UserAccount(
+                        fullName = cleanName,
+                        email = cleanEmail,
+                        password = registerPassword
+                    )
+                    val result = authRepository.registerUser(newUser)
+                    result.fold(
+                        onSuccess = { user ->
+                            errorMessage = null
+                            loginEmail = user.email
+                            successNotification = "¡Registro exitoso para ${user.fullName}! Ahora puedes iniciar sesión."
+                            authMode = AuthMode.LOGIN
+                            registerFullName = ""
+                            registerEmail = ""
+                            registerPassword = ""
+                            registerConfirmPassword = ""
+                        },
+                        onFailure = { exception ->
+                            errorMessage = exception.message
+                        }
+                    )
+                }
             }
         }
     }
@@ -185,7 +191,9 @@ class AuthViewModel(
     }
 
     fun updateUserProfile(updatedUser: UserAccount) {
-        authRepository.updateUser(updatedUser)
-        loggedInUser = updatedUser
+        viewModelScope.launch {
+            authRepository.updateUser(updatedUser)
+            loggedInUser = updatedUser
+        }
     }
 }

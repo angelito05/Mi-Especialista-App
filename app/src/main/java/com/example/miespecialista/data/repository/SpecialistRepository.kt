@@ -3,11 +3,17 @@ package com.example.miespecialista.data.repository
 import com.example.miespecialista.data.model.ServiceJob
 import com.example.miespecialista.data.model.SpecialistData
 import com.example.miespecialista.data.model.WalletTransaction
+import com.example.miespecialista.data.remote.ApiService
+import com.example.miespecialista.data.remote.RetrofitClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-// Repositorio encargado de especialistas, servicios y billetera
-class SpecialistRepository {
+// Repositorio de Especialistas y Servicios con soporte de API remota y Fallback
+class SpecialistRepository(
+    private val apiService: ApiService = RetrofitClient.apiService
+) {
 
-    private val specialists = listOf(
+    private val localSpecialists = listOf(
         SpecialistData(
             id = "1",
             name = "Roberto Gómez",
@@ -54,19 +60,32 @@ class SpecialistRepository {
         )
     )
 
-    private val services = mutableListOf(
+    private val localServices = listOf(
         ServiceJob("1", "Roberto Gómez", "Instalación de Cableado y Tablero Eléctrico", "Electricidad", "Mañana, 10:30 AM", "Confirmado", "$25.00"),
         ServiceJob("2", "Luis Hernández", "Reparación de Fuga de Agua e Inodoro", "Plomería", "Ayer, 3:00 PM", "Completado", "$28.00")
     )
 
-    private val transactions = mutableListOf(
+    private val localTransactions = listOf(
         WalletTransaction("1", "Pago de servicio - Roberto Gómez", "Ayer", "- $25.00", true),
         WalletTransaction("2", "Recarga de saldo", "10 de Octubre", "+ $50.00", false)
     )
 
-    fun getSpecialists(): List<SpecialistData> = specialists
+    suspend fun getSpecialists(query: String? = null): List<SpecialistData> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getSpecialists(query)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data ?: localSpecialists
+            } else {
+                localSpecialists
+            }
+        } catch (_: Exception) {
+            localSpecialists
+        }
+    }
 
-    fun getServices(): List<ServiceJob> = services
+    fun getLocalSpecialists(): List<SpecialistData> = localSpecialists
 
-    fun getTransactions(): List<WalletTransaction> = transactions
+    fun getServices(): List<ServiceJob> = localServices
+
+    fun getTransactions(): List<WalletTransaction> = localTransactions
 }

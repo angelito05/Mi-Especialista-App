@@ -5,13 +5,15 @@ import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.miespecialista.data.model.ServiceJob
 import com.example.miespecialista.data.model.SpecialistData
 import com.example.miespecialista.data.model.UserAccount
 import com.example.miespecialista.data.model.WalletTransaction
 import com.example.miespecialista.data.repository.SpecialistRepository
+import kotlinx.coroutines.launch
 
-// ViewModel para gestionar el estado principal de la aplicación (MVVM)
+// ViewModel para gestionar la lógica de presentación y filtrado (MVVM)
 class MainViewModel(
     private val specialistRepository: SpecialistRepository = SpecialistRepository()
 ) : ViewModel() {
@@ -22,38 +24,34 @@ class MainViewModel(
     var searchQuery by mutableStateOf("")
         private set
 
-    var selectedFilter by mutableStateOf("Cercanía")
+    var selectedFilter by mutableStateOf("Todos")
         private set
 
     var selectedSpecialistForDetail by mutableStateOf<SpecialistData?>(null)
         private set
 
-    // Estado para la edición de perfil
-    var isEditingProfile by mutableStateOf(false)
+    // Subpantallas dentro de Perfil (Billetera, Soporte, Editar)
+    var profileSubScreen by mutableStateOf<ProfileSubScreen?>(null)
         private set
 
+    // Estado para edición de perfil
     var editFullName by mutableStateOf("")
         private set
-
     var editEmail by mutableStateOf("")
         private set
-
     var editPhone by mutableStateOf("")
         private set
-
     var editAddress by mutableStateOf("")
         private set
 
     var profileErrorMessage by mutableStateOf<String?>(null)
         private set
-
     var profileSuccessMessage by mutableStateOf<String?>(null)
         private set
 
-    // Estado del Chat de Mensajería
+    // Estado del Chat
     var chatInputText by mutableStateOf("")
         private set
-
     var chatMessages by mutableStateOf(
         listOf(
             Pair(false, "¡Hola! Buenas tardes, ¿en qué puedo ayudarte con tu proyecto u oficio?"),
@@ -67,8 +65,50 @@ class MainViewModel(
     var walletBalance by mutableDoubleStateOf(120.50)
         private set
 
+    var apiSpecialistsList by mutableStateOf<List<SpecialistData>>(specialistRepository.getLocalSpecialists())
+        private set
+
+    init {
+        fetchRemoteSpecialists()
+    }
+
+    fun fetchRemoteSpecialists() {
+        viewModelScope.launch {
+            apiSpecialistsList = specialistRepository.getSpecialists(searchQuery.ifBlank { null })
+        }
+    }
+
     val specialists: List<SpecialistData>
-        get() = specialistRepository.getSpecialists()
+        get() = apiSpecialistsList.ifEmpty { specialistRepository.getLocalSpecialists() }
+
+    // Lógica del filtro de búsqueda de especialistas funcional
+    val filteredSpecialists: List<SpecialistData>
+        get() {
+            var list = specialists
+
+            // 1. Filtrado por texto en nombre o especialidad
+            if (searchQuery.isNotBlank()) {
+                val query = searchQuery.trim().lowercase()
+                list = list.filter {
+                    it.name.lowercase().contains(query) ||
+                    it.specialty.lowercase().contains(query)
+                }
+            }
+
+            // 2. Filtrado y ordenamiento según el chip seleccionado
+            return when (selectedFilter) {
+                "Cercanía" -> list.sortedBy {
+                    it.distance.replace(Regex("[^0-9.]"), "").toDoubleOrNull() ?: 0.0
+                }
+                "Calificación" -> list.sortedByDescending {
+                    it.rating.substringBefore(" ").toDoubleOrNull() ?: 0.0
+                }
+                "Tarifa" -> list.sortedBy {
+                    it.hourlyPrice.replace(Regex("[^0-9.]"), "").toDoubleOrNull() ?: 0.0
+                }
+                else -> list
+            }
+        }
 
     val services: List<ServiceJob>
         get() = specialistRepository.getServices()
@@ -79,11 +119,13 @@ class MainViewModel(
     fun selectTab(tab: BottomTab) {
         currentTab = tab
         selectedSpecialistForDetail = null
+        profileSubScreen = null
         profileSuccessMessage = null
     }
 
     fun updateSearchQuery(query: String) {
         searchQuery = query
+        fetchRemoteSpecialists()
     }
 
     fun updateFilter(filter: String) {
@@ -94,6 +136,14 @@ class MainViewModel(
         selectedSpecialistForDetail = specialist
     }
 
+    fun openProfileSubScreen(subScreen: ProfileSubScreen) {
+        profileSubScreen = subScreen
+    }
+
+    fun closeProfileSubScreen() {
+        profileSubScreen = null
+    }
+
     fun startEditingProfile(user: UserAccount) {
         editFullName = user.fullName
         editEmail = user.email
@@ -101,7 +151,7 @@ class MainViewModel(
         editAddress = user.address
         profileErrorMessage = null
         profileSuccessMessage = null
-        isEditingProfile = true
+        profileSubScreen = ProfileSubScreen.EDIT_PROFILE
     }
 
     fun updateEditFullName(name: String) {
@@ -125,7 +175,7 @@ class MainViewModel(
     }
 
     fun cancelEditingProfile() {
-        isEditingProfile = false
+        profileSubScreen = null
         profileErrorMessage = null
     }
 
@@ -155,7 +205,7 @@ class MainViewModel(
                     address = editAddress.trim()
                 )
                 onUpdateUser(updated)
-                isEditingProfile = false
+                profileSubScreen = null
                 profileSuccessMessage = "¡Perfil actualizado exitosamente!"
             }
         }
@@ -171,4 +221,10 @@ class MainViewModel(
             chatInputText = ""
         }
     }
+}
+
+enum class ProfileSubScreen {
+    EDIT_PROFILE,
+    WALLET,
+    SUPPORT
 }

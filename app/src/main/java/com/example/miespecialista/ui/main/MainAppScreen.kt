@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -46,14 +47,11 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Verified
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Handyman
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.SupportAgent
-import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -78,6 +76,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -96,7 +96,7 @@ import com.example.miespecialista.ui.theme.GrisTexto
 import com.example.miespecialista.ui.theme.MiEspecialistaTheme
 import com.example.miespecialista.ui.theme.Turquesa
 
-// Enum para la barra de navegación con iconos Rellenos (Filled) y Lineales (Outlined)
+// Enum optimizado para la barra de navegación (5 elementos principales para evitar saturación)
 enum class BottomTab(
     val title: String,
     val filledIcon: ImageVector,
@@ -112,25 +112,20 @@ enum class BottomTab(
         filledIcon = Icons.Filled.Search,
         outlinedIcon = Icons.Outlined.Search
     ),
-    SEGUIMIENTO(
-        title = "Seguimiento",
-        filledIcon = Icons.Filled.Timeline,
-        outlinedIcon = Icons.Outlined.Timeline
+    SERVICIOS(
+        title = "Servicios",
+        filledIcon = Icons.Filled.Handyman,
+        outlinedIcon = Icons.Outlined.Handyman
     ),
     MENSAJES(
         title = "Mensajes",
         filledIcon = Icons.Filled.Chat,
         outlinedIcon = Icons.Outlined.Chat
     ),
-    BILLETERA(
-        title = "Billetera",
-        filledIcon = Icons.Filled.AccountBalanceWallet,
-        outlinedIcon = Icons.Outlined.AccountBalanceWallet
-    ),
-    SOPORTE(
-        title = "Soporte",
-        filledIcon = Icons.Filled.SupportAgent,
-        outlinedIcon = Icons.Outlined.SupportAgent
+    PERFIL(
+        title = "Perfil",
+        filledIcon = Icons.Filled.Person,
+        outlinedIcon = Icons.Outlined.Person
     )
 }
 
@@ -145,13 +140,13 @@ fun MainAppScreen(
     val selectedSpecialist = mainViewModel.selectedSpecialistForDetail
 
     if (selectedSpecialist != null) {
-        // Muestra la pantalla completa de Perfil del Especialista
+        // Pantalla completa de Perfil del Especialista
         SpecialistProfileScreen(
             specialist = selectedSpecialist,
             onBack = { mainViewModel.selectSpecialist(null) },
             onRequestService = {
                 mainViewModel.selectSpecialist(null)
-                mainViewModel.selectTab(BottomTab.SEGUIMIENTO)
+                mainViewModel.selectTab(BottomTab.SERVICIOS)
             },
             onSendMessage = {
                 mainViewModel.selectSpecialist(null)
@@ -177,7 +172,7 @@ fun MainAppScreen(
                                     imageVector = if (isSelected) tab.filledIcon else tab.outlinedIcon,
                                     contentDescription = tab.title,
                                     tint = if (isSelected) AzulProfundo else GrisTexto,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                             },
                             label = {
@@ -185,8 +180,7 @@ fun MainAppScreen(
                                     text = tab.title,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) AzulProfundo else GrisTexto,
-                                    fontSize = 11.sp
+                                    color = if (isSelected) AzulProfundo else GrisTexto
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
@@ -211,10 +205,9 @@ fun MainAppScreen(
                     BottomTab.BUSQUEDA -> BusquedaTabScreen(
                         viewModel = mainViewModel
                     )
-                    BottomTab.SEGUIMIENTO -> SeguimientoTabScreen()
+                    BottomTab.SERVICIOS -> ServiciosTabScreen()
                     BottomTab.MENSAJES -> MensajeriaTabScreen(viewModel = mainViewModel)
-                    BottomTab.BILLETERA -> BilleteraTabScreen(viewModel = mainViewModel)
-                    BottomTab.SOPORTE -> SoporteTabScreen(
+                    BottomTab.PERFIL -> PerfilTabHubScreen(
                         user = user,
                         onLogout = onLogout,
                         onUpdateUser = onUpdateUser,
@@ -244,8 +237,7 @@ fun InicioTabScreen(
         Image(
             painter = painterResource(id = R.drawable.code_generated_image__1_),
             contentDescription = "Logo Mi Especialista",
-            modifier = Modifier
-                .height(38.dp),
+            modifier = Modifier.height(38.dp),
             contentScale = ContentScale.Fit
         )
 
@@ -266,10 +258,15 @@ fun InicioTabScreen(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // Barra de Búsqueda
+        // Barra de Búsqueda interactiva que redirige o busca directamente
         OutlinedTextField(
             value = viewModel.searchQuery,
-            onValueChange = { viewModel.updateSearchQuery(it) },
+            onValueChange = {
+                viewModel.updateSearchQuery(it)
+                if (viewModel.currentTab != BottomTab.BUSQUEDA && it.isNotBlank()) {
+                    viewModel.selectTab(BottomTab.BUSQUEDA)
+                }
+            },
             placeholder = { Text("Buscar electricista, plomero, pintor...") },
             leadingIcon = {
                 Icon(
@@ -305,10 +302,22 @@ fun InicioTabScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            CategoryItem(symbol = "⚡", label = "Electricidad")
-            CategoryItem(symbol = "🪚", label = "Carpintería")
-            CategoryItem(symbol = "🎨", label = "Pintura")
-            CategoryItem(symbol = "🚰", label = "Plomería")
+            CategoryItem(symbol = "⚡", label = "Electricidad", onClick = {
+                viewModel.updateSearchQuery("Electricidad")
+                viewModel.selectTab(BottomTab.BUSQUEDA)
+            })
+            CategoryItem(symbol = "🪚", label = "Carpintería", onClick = {
+                viewModel.updateSearchQuery("Carpintería")
+                viewModel.selectTab(BottomTab.BUSQUEDA)
+            })
+            CategoryItem(symbol = "🎨", label = "Pintura", onClick = {
+                viewModel.updateSearchQuery("Pintura")
+                viewModel.selectTab(BottomTab.BUSQUEDA)
+            })
+            CategoryItem(symbol = "🚰", label = "Plomería", onClick = {
+                viewModel.updateSearchQuery("Plomería")
+                viewModel.selectTab(BottomTab.BUSQUEDA)
+            })
         }
 
         Spacer(modifier = Modifier.height(22.dp))
@@ -378,11 +387,12 @@ fun InicioTabScreen(
 }
 
 @Composable
-fun CategoryItem(symbol: String, label: String) {
+fun CategoryItem(symbol: String, label: String, onClick: () -> Unit = {}) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
             .background(GrisSuave)
             .padding(10.dp)
             .width(72.dp)
@@ -482,12 +492,14 @@ fun SpecialistCardItem(
 }
 
 // ----------------------------------------------------------------------------
-// 2. PANTALLA BÚSQUEDA Y FILTROS
+// 2. PANTALLA BÚSQUEDA Y FILTROS DERECHO (FUNCIONAL)
 // ----------------------------------------------------------------------------
 @Composable
 fun BusquedaTabScreen(
     viewModel: MainViewModel
 ) {
+    val results = viewModel.filteredSpecialists
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -500,19 +512,44 @@ fun BusquedaTabScreen(
             color = AzulProfundo
         )
         Text(
-            text = "Filtra por cercanía, evaluación o tarifa",
+            text = "Filtra resultados en tiempo real por cercanía, evaluación o tarifa",
             style = MaterialTheme.typography.bodyMedium,
             color = GrisTexto
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Filtros
+        // Campo de búsqueda integrado
+        OutlinedTextField(
+            value = viewModel.searchQuery,
+            onValueChange = { viewModel.updateSearchQuery(it) },
+            placeholder = { Text("Buscar por nombre u oficio...") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = "Buscar",
+                    tint = AzulProfundo
+                )
+            },
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Turquesa,
+                unfocusedBorderColor = GrisSuave,
+                focusedContainerColor = Blanco,
+                unfocusedContainerColor = Blanco
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Chips de Filtro Funcionales
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            listOf("Cercanía", "Calificación", "Tarifa").forEach { filter ->
+            listOf("Todos", "Cercanía", "Calificación", "Tarifa").forEach { filter ->
                 val isSelected = viewModel.selectedFilter == filter
                 Card(
                     modifier = Modifier
@@ -528,7 +565,7 @@ fun BusquedaTabScreen(
                         color = if (isSelected) AzulProfundo else GrisTexto,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
             }
@@ -536,17 +573,33 @@ fun BusquedaTabScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            viewModel.specialists.forEach { specialist ->
-                SpecialistCardItem(
-                    specialist = specialist,
-                    onSelect = { viewModel.selectSpecialist(specialist) }
+        if (results.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No se encontraron especialistas para \"${viewModel.searchQuery}\"",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = GrisTexto,
+                    textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                results.forEach { specialist ->
+                    SpecialistCardItem(
+                        specialist = specialist,
+                        onSelect = { viewModel.selectSpecialist(specialist) }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
             }
         }
     }
@@ -569,7 +622,6 @@ fun SpecialistProfileScreen(
             .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
-        // Botón regresar
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.Filled.ArrowBack,
@@ -580,7 +632,6 @@ fun SpecialistProfileScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Header Avatar + Nombre + Insignia
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
@@ -632,7 +683,6 @@ fun SpecialistProfileScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Descripción profesional
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -656,7 +706,6 @@ fun SpecialistProfileScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Galería de trabajos realizados
         Text(
             text = "Galería de Proyectos Realizados",
             style = MaterialTheme.typography.titleMedium,
@@ -697,7 +746,6 @@ fun SpecialistProfileScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // Botones amplios para acción
         Button(
             onClick = onRequestService,
             colors = ButtonDefaults.buttonColors(containerColor = AzulProfundo),
@@ -745,7 +793,6 @@ fun MensajeriaTabScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Header del chat
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -793,7 +840,6 @@ fun MensajeriaTabScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Lista de globos de texto
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -831,7 +877,6 @@ fun MensajeriaTabScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Campo de entrada de mensaje
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -884,10 +929,10 @@ fun MensajeriaTabScreen(
 }
 
 // ----------------------------------------------------------------------------
-// 5. PANTALLA SEGUIMIENTO Y TIMELINE DE SERVICIO
+// 5. PANTALLA SERVICIOS Y TIMELINE DE SEGUIMIENTO
 // ----------------------------------------------------------------------------
 @Composable
-fun SeguimientoTabScreen() {
+fun ServiciosTabScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -895,20 +940,20 @@ fun SeguimientoTabScreen() {
             .verticalScroll(rememberScrollState())
     ) {
         Text(
-            text = "Seguimiento del Servicio",
+            text = "Mis Servicios Contratados",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             color = AzulProfundo
         )
         Text(
-            text = "Estado en tiempo real de tu solicitud",
+            text = "Seguimiento en tiempo real e historial de solicitudes",
             style = MaterialTheme.typography.bodyMedium,
             color = GrisTexto
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Mapa Simulado y Hora estimada
+        // Mapa Simulado
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -937,7 +982,7 @@ fun SeguimientoTabScreen() {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp)
+                        .height(110.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(Turquesa.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
@@ -947,7 +992,7 @@ fun SeguimientoTabScreen() {
                             imageVector = Icons.Filled.Map,
                             contentDescription = "Mapa simulado",
                             tint = AzulProfundo,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(32.dp)
                         )
                         Text(
                             text = "Mapa de rastreo en vivo",
@@ -971,7 +1016,7 @@ fun SeguimientoTabScreen() {
                         color = AzulProfundo
                     )
                     Text(
-                        text = "Costo estimado: $25.00",
+                        text = "Costo: $25.00",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold,
                         color = Turquesa
@@ -982,20 +1027,20 @@ fun SeguimientoTabScreen() {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Timeline Vertical de Estado
+        // Timeline
         Text(
-            text = "Línea de Tiempo del Servicio",
+            text = "Línea de Tiempo del Servicio Activo",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = AzulProfundo
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         TimelineStepItem(
             stepNumber = "1",
             title = "Servicio Solicitado y Confirmado",
-            subtitle = "Tu solicitud fue aceptada por Roberto Gómez",
+            subtitle = "Aceptado por Roberto Gómez (Electricidad)",
             isCompleted = true,
             isCurrent = false
         )
@@ -1009,14 +1054,14 @@ fun SeguimientoTabScreen() {
         TimelineStepItem(
             stepNumber = "3",
             title = "Trabajo en proceso",
-            subtitle = "Inspección y ejecución de la reparación",
+            subtitle = "Ejecución de la reparación",
             isCompleted = false,
             isCurrent = false
         )
         TimelineStepItem(
             stepNumber = "4",
-            title = "Servicio Finalizado y Pago",
-            subtitle = "Liberación del pago con garantía",
+            title = "Finalizado y Pago Liberado",
+            subtitle = "Confirmación de satisfacción del cliente",
             isCompleted = false,
             isCurrent = false
         )
@@ -1034,12 +1079,12 @@ fun TimelineStepItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(34.dp)
                 .clip(CircleShape)
                 .background(
                     when {
@@ -1054,11 +1099,11 @@ fun TimelineStepItem(
                 text = if (isCompleted) "✓" else stepNumber,
                 color = if (isCompleted || isCurrent) Blanco else GrisTexto,
                 fontWeight = FontWeight.Bold,
-                fontSize = 14.sp
+                fontSize = 13.sp
             )
         }
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -1077,11 +1122,189 @@ fun TimelineStepItem(
 }
 
 // ----------------------------------------------------------------------------
-// 6. PANTALLA BILLETERA DIGITAL
+// 6. HUB DE PERFIL (CON ACCESO LIMPIO A BILLETERA, SOPORTE Y EDICIÓN DE PERFIL)
 // ----------------------------------------------------------------------------
 @Composable
-fun BilleteraTabScreen(
+fun PerfilTabHubScreen(
+    user: UserAccount,
+    onLogout: () -> Unit,
+    onUpdateUser: (UserAccount) -> Unit,
     viewModel: MainViewModel
+) {
+    when (viewModel.profileSubScreen) {
+        ProfileSubScreen.EDIT_PROFILE -> {
+            EditProfileView(
+                user = user,
+                viewModel = viewModel,
+                onUpdateUser = onUpdateUser
+            )
+        }
+        ProfileSubScreen.WALLET -> {
+            WalletSubView(
+                viewModel = viewModel,
+                onBack = { viewModel.closeProfileSubScreen() }
+            )
+        }
+        ProfileSubScreen.SUPPORT -> {
+            SupportSubView(
+                user = user,
+                onBack = { viewModel.closeProfileSubScreen() }
+            )
+        }
+        null -> {
+            MainProfileView(
+                user = user,
+                viewModel = viewModel,
+                onLogout = onLogout
+            )
+        }
+    }
+}
+
+@Composable
+fun MainProfileView(
+    user: UserAccount,
+    viewModel: MainViewModel,
+    onLogout: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Mi Cuenta",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = AzulProfundo,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        AnimatedVisibility(visible = viewModel.profileSuccessMessage != null) {
+            viewModel.profileSuccessMessage?.let {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Turquesa.copy(alpha = 0.15f)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                ) {
+                    Text(
+                        text = it,
+                        color = AzulProfundo,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .size(86.dp)
+                .clip(CircleShape)
+                .background(Turquesa),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Person,
+                contentDescription = "Avatar",
+                tint = Blanco,
+                modifier = Modifier.size(50.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = user.fullName,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = AzulProfundo
+        )
+
+        Text(
+            text = user.email,
+            style = MaterialTheme.typography.bodyMedium,
+            color = GrisTexto
+        )
+
+        Text(
+            text = "📞 ${user.phone} • 📍 ${user.address}",
+            style = MaterialTheme.typography.bodySmall,
+            color = AzulProfundo,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Opciones del menú del perfil organizadas
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, GrisSuave, RoundedCornerShape(14.dp)),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Blanco)
+        ) {
+            Column(modifier = Modifier.padding(6.dp)) {
+                ProfileMenuRow(
+                    icon = Icons.Filled.Person,
+                    title = "Editar Información Personal",
+                    onClick = { viewModel.startEditingProfile(user) }
+                )
+                ProfileMenuRow(
+                    icon = Icons.Filled.AccountBalanceWallet,
+                    title = "Billetera Digital y Saldo ($${String.format("%.2f", viewModel.walletBalance)})",
+                    onClick = { viewModel.openProfileSubScreen(ProfileSubScreen.WALLET) }
+                )
+                ProfileMenuRow(
+                    icon = Icons.Filled.SupportAgent,
+                    title = "Centro de Soporte e Incidencias",
+                    onClick = { viewModel.openProfileSubScreen(ProfileSubScreen.SUPPORT) }
+                )
+                ProfileMenuRow(
+                    icon = Icons.Filled.Notifications,
+                    title = "Notificaciones de Visitas Técnicas",
+                    onClick = { }
+                )
+                ProfileMenuRow(
+                    icon = Icons.Filled.Lock,
+                    title = "Seguridad y Contraseña",
+                    onClick = { }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        OutlinedButton(
+            onClick = onLogout,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+        ) {
+            Text(
+                text = "Cerrar Sesión",
+                color = AzulProfundo,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun EditProfileView(
+    user: UserAccount,
+    viewModel: MainViewModel,
+    onUpdateUser: (UserAccount) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -1089,29 +1312,158 @@ fun BilleteraTabScreen(
             .padding(20.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text(
-            text = "Billetera Digital",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = AzulProfundo
-        )
-        Text(
-            text = "Gestiona tu saldo y pagos seguros",
-            style = MaterialTheme.typography.bodyMedium,
-            color = GrisTexto
-        )
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, GrisSuave, RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Blanco)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Editar Información Personal",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = AzulProfundo
+                )
 
-        Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-        // Card de Saldo Disponible
+                OutlinedTextField(
+                    value = viewModel.editFullName,
+                    onValueChange = { viewModel.updateEditFullName(it) },
+                    label = { Text("Nombre Completo") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Turquesa,
+                        unfocusedBorderColor = GrisSuave,
+                        focusedLabelColor = AzulProfundo
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = viewModel.editEmail,
+                    onValueChange = { viewModel.updateEditEmail(it) },
+                    label = { Text("Correo Electrónico") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Turquesa,
+                        unfocusedBorderColor = GrisSuave,
+                        focusedLabelColor = AzulProfundo
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = viewModel.editPhone,
+                    onValueChange = { viewModel.updateEditPhone(it) },
+                    label = { Text("Teléfono de Contacto") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Turquesa,
+                        unfocusedBorderColor = GrisSuave,
+                        focusedLabelColor = AzulProfundo
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = viewModel.editAddress,
+                    onValueChange = { viewModel.updateEditAddress(it) },
+                    label = { Text("Dirección Principal") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Turquesa,
+                        unfocusedBorderColor = GrisSuave,
+                        focusedLabelColor = AzulProfundo
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                AnimatedVisibility(visible = viewModel.profileErrorMessage != null) {
+                    viewModel.profileErrorMessage?.let {
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Button(
+                    onClick = {
+                        viewModel.saveProfileChanges(user, onUpdateUser)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AzulProfundo),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                ) {
+                    Text("Guardar Cambios", color = Blanco, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedButton(
+                    onClick = { viewModel.cancelEditingProfile() },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancelar", color = AzulProfundo)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WalletSubView(
+    viewModel: MainViewModel,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "Regresar", tint = AzulProfundo)
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Billetera Digital",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = AzulProfundo
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = AzulProfundo)
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text = "Saldo Disponible",
                     style = MaterialTheme.typography.bodyMedium,
@@ -1141,7 +1493,7 @@ fun BilleteraTabScreen(
                     ) {
                         Icon(imageVector = Icons.Filled.Add, contentDescription = "Agregar", tint = Blanco)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Agregar Fondos", color = Blanco, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Agregar", color = Blanco, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
 
                     OutlinedButton(
@@ -1157,7 +1509,6 @@ fun BilleteraTabScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Reglas de comisión
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -1167,11 +1518,7 @@ fun BilleteraTabScreen(
                 modifier = Modifier.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Shield,
-                    contentDescription = "Protección",
-                    tint = Turquesa
-                )
+                Icon(imageVector = Icons.Filled.Shield, contentDescription = "Protección", tint = Turquesa)
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = "Transacciones protegidas con seguro de protección y comisión del 5%.",
@@ -1183,7 +1530,6 @@ fun BilleteraTabScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Historial de Movimientos
         Text(
             text = "Historial de Movimientos",
             style = MaterialTheme.typography.titleMedium,
@@ -1234,15 +1580,10 @@ fun BilleteraTabScreen(
     }
 }
 
-// ----------------------------------------------------------------------------
-// 7. PANTALLA PERFIL Y EDITAR PERFIL (FUNCIONAL CON MVVM)
-// ----------------------------------------------------------------------------
 @Composable
-fun SoporteTabScreen(
+fun SupportSubView(
     user: UserAccount,
-    onLogout: () -> Unit,
-    onUpdateUser: (UserAccount) -> Unit,
-    viewModel: MainViewModel
+    onBack: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -1250,284 +1591,126 @@ fun SoporteTabScreen(
             .padding(20.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        if (viewModel.isEditingProfile) {
-            EditProfileView(
-                user = user,
-                viewModel = viewModel,
-                onUpdateUser = onUpdateUser
-            )
-        } else {
-            ProfileDetailsView(
-                user = user,
-                viewModel = viewModel,
-                onLogout = onLogout
-            )
-        }
-    }
-}
-
-@Composable
-fun ProfileDetailsView(
-    user: UserAccount,
-    viewModel: MainViewModel,
-    onLogout: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = "Mi Perfil",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = AzulProfundo,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Notificación de éxito al guardar
-        AnimatedVisibility(visible = viewModel.profileSuccessMessage != null) {
-            viewModel.profileSuccessMessage?.let {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Turquesa.copy(alpha = 0.15f)),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp)
-                ) {
-                    Text(
-                        text = it,
-                        color = AzulProfundo,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "Regresar", tint = AzulProfundo)
             }
-        }
-
-        Box(
-            modifier = Modifier
-                .size(90.dp)
-                .clip(CircleShape)
-                .background(Turquesa),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Person,
-                contentDescription = "Avatar",
-                tint = Blanco,
-                modifier = Modifier.size(54.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = user.fullName,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = AzulProfundo
-        )
-
-        Text(
-            text = user.email,
-            style = MaterialTheme.typography.bodyMedium,
-            color = GrisTexto
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Text(
-            text = "📞 ${user.phone} • 📍 ${user.address}",
-            style = MaterialTheme.typography.bodySmall,
-            color = AzulProfundo,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Opciones de configuración
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, GrisSuave, RoundedCornerShape(14.dp)),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Blanco)
-        ) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                ProfileMenuRow(
-                    icon = Icons.Filled.Person,
-                    title = "Editar Información Personal",
-                    onClick = { viewModel.startEditingProfile(user) }
-                )
-                ProfileMenuRow(
-                    icon = Icons.Filled.HomeWork,
-                    title = "Mis Direcciones Guardadas",
-                    onClick = { }
-                )
-                ProfileMenuRow(
-                    icon = Icons.Filled.Notifications,
-                    title = "Notificaciones y Alertas",
-                    onClick = { }
-                )
-                ProfileMenuRow(
-                    icon = Icons.Filled.Payment,
-                    title = "Métodos de Pago y Facturación",
-                    onClick = { }
-                )
-                ProfileMenuRow(
-                    icon = Icons.Filled.Lock,
-                    title = "Seguridad y Contraseña",
-                    onClick = { }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        OutlinedButton(
-            onClick = onLogout,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-        ) {
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Cerrar Sesión",
-                color = AzulProfundo,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-}
-
-@Composable
-fun EditProfileView(
-    user: UserAccount,
-    viewModel: MainViewModel,
-    onUpdateUser: (UserAccount) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, GrisSuave, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Blanco)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Editar Información Personal",
+                text = "Centro de Soporte",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = AzulProfundo
             )
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-            // Nombre Completo
-            OutlinedTextField(
-                value = viewModel.editFullName,
-                onValueChange = { viewModel.updateEditFullName(it) },
-                label = { Text("Nombre Completo") },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Turquesa,
-                    unfocusedBorderColor = GrisSuave,
-                    focusedLabelColor = AzulProfundo
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Correo Electrónico
-            OutlinedTextField(
-                value = viewModel.editEmail,
-                onValueChange = { viewModel.updateEditEmail(it) },
-                label = { Text("Correo Electrónico") },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Turquesa,
-                    unfocusedBorderColor = GrisSuave,
-                    focusedLabelColor = AzulProfundo
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Teléfono
-            OutlinedTextField(
-                value = viewModel.editPhone,
-                onValueChange = { viewModel.updateEditPhone(it) },
-                label = { Text("Teléfono de Contacto") },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Turquesa,
-                    unfocusedBorderColor = GrisSuave,
-                    focusedLabelColor = AzulProfundo
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Dirección
-            OutlinedTextField(
-                value = viewModel.editAddress,
-                onValueChange = { viewModel.updateEditAddress(it) },
-                label = { Text("Dirección Principal") },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Turquesa,
-                    unfocusedBorderColor = GrisSuave,
-                    focusedLabelColor = AzulProfundo
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            AnimatedVisibility(visible = viewModel.profileErrorMessage != null) {
-                viewModel.profileErrorMessage?.let {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Turquesa, RoundedCornerShape(12.dp)),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Turquesa.copy(alpha = 0.1f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 8.dp)
+                        text = "Ticket #1042",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = AzulProfundo
                     )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Ambar)
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "En revisión",
+                            color = AzulProfundo,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Incidencia: Consulta de cobertura en zona Coyoacán",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GrisTexto
+                )
             }
+        }
 
-            Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-            Button(
-                onClick = {
-                    viewModel.saveProfileChanges(user, onUpdateUser)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = AzulProfundo),
-                shape = RoundedCornerShape(12.dp),
+        SupportOptionItem(
+            icon = Icons.Filled.Info,
+            title = "Reportar una incidencia con un servicio",
+            subtitle = "Envía los detalles si tuviste un inconveniente"
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        SupportOptionItem(
+            icon = Icons.Filled.QuestionAnswer,
+            title = "Preguntas Frecuentes (FAQ)",
+            subtitle = "Dudas comunes sobre contrataciones y pagos"
+        )
+    }
+}
+
+@Composable
+fun SupportOptionItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { }
+            .border(1.dp, GrisSuave, RoundedCornerShape(12.dp)),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Blanco)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Turquesa.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
             ) {
-                Text("Guardar Cambios", color = Blanco, fontWeight = FontWeight.Bold)
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = AzulProfundo,
+                    modifier = Modifier.size(22.dp)
+                )
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedButton(
-                onClick = { viewModel.cancelEditingProfile() },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Cancelar", color = AzulProfundo)
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = AzulProfundo
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GrisTexto
+                )
             }
         }
     }
