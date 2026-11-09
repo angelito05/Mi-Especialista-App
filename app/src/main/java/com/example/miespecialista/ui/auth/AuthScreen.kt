@@ -23,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -43,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.miespecialista.R
-import com.example.miespecialista.data.model.UserAccount
 import com.example.miespecialista.ui.main.MainAppScreen
 import com.example.miespecialista.ui.theme.Ambar
 import com.example.miespecialista.ui.theme.AzulProfundo
@@ -165,12 +165,12 @@ fun LoginFormView(
                 }
             }
 
-            // Correo
+            // Teléfono
             OutlinedTextField(
-                value = viewModel.loginEmail,
-                onValueChange = { viewModel.updateLoginEmail(it) },
-                label = { Text("Correo Electrónico") },
-                leadingIcon = { Text("✉️", fontSize = 18.sp) },
+                value = viewModel.loginTelefono,
+                onValueChange = { viewModel.updateLoginTelefono(it) },
+                label = { Text("Número de Teléfono") },
+                leadingIcon = { Text("📱", fontSize = 18.sp) },
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Turquesa,
@@ -178,7 +178,7 @@ fun LoginFormView(
                     focusedLabelColor = AzulProfundo
                 ),
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
+                    keyboardType = KeyboardType.Phone,
                     imeAction = ImeAction.Next
                 ),
                 modifier = Modifier.fillMaxWidth()
@@ -232,6 +232,7 @@ fun LoginFormView(
             // Botón de Iniciar Sesión
             Button(
                 onClick = { viewModel.submitLogin() },
+                enabled = !viewModel.isLoading,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = AzulProfundo,
                     contentColor = Blanco
@@ -241,11 +242,19 @@ fun LoginFormView(
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text(
-                    text = "Iniciar Sesión",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                if (viewModel.isLoading) {
+                    CircularProgressIndicator(
+                        color = Blanco,
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.5.dp
+                    )
+                } else {
+                    Text(
+                        text = "Iniciar Sesión",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -290,12 +299,12 @@ fun RegisterFormView(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Nombre Completo
+            // Número de Teléfono
             OutlinedTextField(
-                value = viewModel.registerFullName,
-                onValueChange = { viewModel.updateRegisterFullName(it) },
-                label = { Text("Nombre Completo") },
-                leadingIcon = { Text("👤", fontSize = 18.sp) },
+                value = viewModel.registerTelefono,
+                onValueChange = { viewModel.updateRegisterTelefono(it) },
+                label = { Text("Número de Teléfono") },
+                leadingIcon = { Text("📱", fontSize = 18.sp) },
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Turquesa,
@@ -303,28 +312,7 @@ fun RegisterFormView(
                     focusedLabelColor = AzulProfundo
                 ),
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Next
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Correo
-            OutlinedTextField(
-                value = viewModel.registerEmail,
-                onValueChange = { viewModel.updateRegisterEmail(it) },
-                label = { Text("Correo Electrónico") },
-                leadingIcon = { Text("✉️", fontSize = 18.sp) },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Turquesa,
-                    unfocusedBorderColor = GrisSuave,
-                    focusedLabelColor = AzulProfundo
-                ),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
+                    keyboardType = KeyboardType.Phone,
                     imeAction = ImeAction.Next
                 ),
                 modifier = Modifier.fillMaxWidth()
@@ -402,7 +390,7 @@ fun RegisterFormView(
                         isMet = pState.hasDigit
                     )
                     PasswordRequirementItem(
-                        label = "Al menos un símbolo especial (!@#$%^&*...)",
+                        label = "Al menos un símbolo especial (!@#\$%^&*...)",
                         isMet = pState.hasSpecialChar
                     )
                 }
@@ -456,6 +444,7 @@ fun RegisterFormView(
             // Botón de Registro
             Button(
                 onClick = { viewModel.submitRegister() },
+                enabled = !viewModel.isLoading,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = AzulProfundo,
                     contentColor = Blanco
@@ -465,11 +454,19 @@ fun RegisterFormView(
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text(
-                    text = "Registrarse",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                if (viewModel.isLoading) {
+                    CircularProgressIndicator(
+                        color = Blanco,
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.5.dp
+                    )
+                } else {
+                    Text(
+                        text = "Registrarse",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(14.dp))

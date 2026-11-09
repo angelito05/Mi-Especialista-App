@@ -6,16 +6,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.miespecialista.data.model.Categoria
 import com.example.miespecialista.data.model.ServiceJob
 import com.example.miespecialista.data.model.SpecialistData
+import com.example.miespecialista.data.model.Solicitud
 import com.example.miespecialista.data.model.UserAccount
 import com.example.miespecialista.data.model.WalletTransaction
+import com.example.miespecialista.data.repository.MainRepository
 import com.example.miespecialista.data.repository.SpecialistRepository
 import kotlinx.coroutines.launch
 
 // ViewModel para gestionar la lógica de presentación y filtrado (MVVM)
 class MainViewModel(
-    private val specialistRepository: SpecialistRepository = SpecialistRepository()
+    private val specialistRepository: SpecialistRepository = SpecialistRepository(),
+    private val mainRepository: MainRepository = MainRepository()
 ) : ViewModel() {
 
     var currentTab by mutableStateOf(BottomTab.INICIO)
@@ -68,9 +72,36 @@ class MainViewModel(
     var apiSpecialistsList by mutableStateOf<List<SpecialistData>>(specialistRepository.getLocalSpecialists())
         private set
 
+    // ─── Estado de Solicitudes ────────────────────────────────────────────────
+
+    var solicitudes by mutableStateOf<List<Solicitud>>(emptyList())
+        private set
+
+    // ─── Estado de Categorías ─────────────────────────────────────────────────
+
+    var categorias by mutableStateOf<List<Categoria>>(emptyList())
+        private set
+
+    // ─── Indicador de carga general ───────────────────────────────────────────
+
+    var isLoading by mutableStateOf(false)
+        private set
+
+    // ─── Mensaje de error/éxito para operaciones de API ──────────────────────
+
+    var apiErrorMessage by mutableStateOf<String?>(null)
+        private set
+
+    var apiSuccessMessage by mutableStateOf<String?>(null)
+        private set
+
     init {
         fetchRemoteSpecialists()
+        fetchSolicitudes()
+        fetchCategorias()
     }
+
+    // ─── Especialistas ────────────────────────────────────────────────────────
 
     fun fetchRemoteSpecialists() {
         viewModelScope.launch {
@@ -116,6 +147,52 @@ class MainViewModel(
     val transactions: List<WalletTransaction>
         get() = specialistRepository.getTransactions()
 
+    // ─── Solicitudes ──────────────────────────────────────────────────────────
+
+    fun fetchSolicitudes() {
+        viewModelScope.launch {
+            isLoading = true
+            solicitudes = mainRepository.getSolicitudes()
+            isLoading = false
+        }
+    }
+
+    fun crearSolicitud(
+        titulo: String,
+        descripcion: String? = null,
+        direccion: String? = null
+    ) {
+        viewModelScope.launch {
+            isLoading = true
+            apiErrorMessage = null
+            val result = mainRepository.crearSolicitud(
+                titulo = titulo,
+                descripcion = descripcion,
+                direccion = direccion
+            )
+            isLoading = false
+            result.fold(
+                onSuccess = { nuevaSolicitud ->
+                    solicitudes = solicitudes + nuevaSolicitud
+                    apiSuccessMessage = "Solicitud \"${nuevaSolicitud.titulo}\" creada exitosamente."
+                },
+                onFailure = { e ->
+                    apiErrorMessage = e.message ?: "Error al crear la solicitud"
+                }
+            )
+        }
+    }
+
+    // ─── Categorías ───────────────────────────────────────────────────────────
+
+    fun fetchCategorias() {
+        viewModelScope.launch {
+            categorias = mainRepository.getCategorias()
+        }
+    }
+
+    // ─── Navegación ───────────────────────────────────────────────────────────
+
     fun selectTab(tab: BottomTab) {
         currentTab = tab
         selectedSpecialistForDetail = null
@@ -147,7 +224,7 @@ class MainViewModel(
     fun startEditingProfile(user: UserAccount) {
         editFullName = user.fullName
         editEmail = user.email
-        editPhone = user.phone
+        editPhone = if (user.phone.isNotBlank()) user.phone else user.telefono
         editAddress = user.address
         profileErrorMessage = null
         profileSuccessMessage = null
@@ -187,20 +264,15 @@ class MainViewModel(
             editFullName.isBlank() -> {
                 profileErrorMessage = "El nombre no puede estar vacío."
             }
-            editEmail.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(editEmail.trim()).matches() -> {
-                profileErrorMessage = "Ingresa un correo electrónico válido."
-            }
             editPhone.isBlank() -> {
-                profileErrorMessage = "Ingresa un número de teléfono válido."
-            }
-            editAddress.isBlank() -> {
-                profileErrorMessage = "Ingresa tu dirección principal."
+                profileErrorMessage = "El número de teléfono no puede estar vacío."
             }
             else -> {
                 profileErrorMessage = null
                 val updated = currentUser.copy(
                     fullName = editFullName.trim(),
                     email = editEmail.trim(),
+                    telefono = editPhone.trim(),
                     phone = editPhone.trim(),
                     address = editAddress.trim()
                 )
@@ -211,6 +283,8 @@ class MainViewModel(
         }
     }
 
+    // ─── Chat ─────────────────────────────────────────────────────────────────
+
     fun updateChatInputText(text: String) {
         chatInputText = text
     }
@@ -220,6 +294,13 @@ class MainViewModel(
             chatMessages = chatMessages + Pair(true, chatInputText.trim())
             chatInputText = ""
         }
+    }
+
+    // ─── Limpiar mensajes de API ──────────────────────────────────────────────
+
+    fun clearApiMessages() {
+        apiErrorMessage = null
+        apiSuccessMessage = null
     }
 }
 

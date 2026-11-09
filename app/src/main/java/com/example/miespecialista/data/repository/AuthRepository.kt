@@ -8,87 +8,107 @@ import com.example.miespecialista.data.remote.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// Repositorio de Autenticación conectado a la API de la BD con soporte Offline/Fallback
+// Repositorio de Autenticación conectado a la API real con soporte Offline/Fallback
 class AuthRepository(
     private val apiService: ApiService = RetrofitClient.apiService
 ) {
 
+    // Usuario demo local para modo offline (teléfono y contraseña del backend de prueba)
     private val localUsers = mutableListOf(
         UserAccount(
-            fullName = "Carlos Rodríguez",
-            email = "carlos@cliente.com",
-            password = "Password123!",
-            phone = "+52 55 9876 5432",
-            address = "Av. Insurgentes Sur 120, Coyoacán"
+            usuarioId = 1L,
+            telefono = "7441234567",
+            rol = "cliente",
+            estadoCuenta = "activo",
+            password = "Password123!"
         )
     )
 
-    suspend fun registerUser(newUser: UserAccount): Result<UserAccount> = withContext(Dispatchers.IO) {
+    suspend fun registerUser(
+        telefono: String,
+        password: String,
+        rol: String? = null,
+        fotoPerfil: String? = null
+    ): Result<UserAccount> = withContext(Dispatchers.IO) {
         try {
-            val response = apiService.register(
+            val response = apiService.registro(
                 RegisterRequest(
-                    fullName = newUser.fullName,
-                    email = newUser.email,
-                    password = newUser.password,
-                    phone = newUser.phone,
-                    address = newUser.address
+                    telefono = telefono.trim(),
+                    password = password,
+                    rol = rol,
+                    fotoPerfil = fotoPerfil
                 )
             )
 
-            if (response.isSuccessful && response.body()?.success == true) {
-                val user = response.body()?.data ?: newUser
-                localUsers.add(user)
+            if (response.isSuccessful) {
+                val body = response.body()
+                // Guardar JWT token recibido
+                body?.token?.let { RetrofitClient.authToken = it }
+                val user = body?.usuario ?: UserAccount(telefono = telefono.trim(), rol = rol ?: "cliente")
+                localUsers.add(user.copy(password = password))
                 Result.success(user)
             } else {
-                // Fallback local en desarrollo/offline
-                registerLocal(newUser)
+                val errorMsg = response.errorBody()?.string() ?: "Error en el registro"
+                registerLocal(telefono, password, rol)
+                    .recoverCatching { throw Exception(errorMsg) }
             }
         } catch (e: Exception) {
-            // Manejo de ausencia de conexión API -> Fallback a memoria local
-            registerLocal(newUser)
+            // Fallback a memoria local en caso de red no disponible
+            registerLocal(telefono, password, rol)
         }
     }
 
-    suspend fun loginUser(email: String, password: String): Result<UserAccount> = withContext(Dispatchers.IO) {
+    suspend fun loginUser(telefono: String, password: String): Result<UserAccount> = withContext(Dispatchers.IO) {
         try {
-            val response = apiService.login(LoginRequest(email.trim(), password))
+            val response = apiService.login(LoginRequest(telefono.trim(), password))
 
-            if (response.isSuccessful && response.body()?.success == true) {
-                val user = response.body()?.data ?: loginLocal(email, password).getOrThrow()
+            if (response.isSuccessful) {
+                val body = response.body()
+                // Guardar JWT token recibido
+                body?.token?.let { RetrofitClient.authToken = it }
+                val user = body?.usuario ?: loginLocal(telefono, password).getOrThrow()
                 Result.success(user)
             } else {
-                loginLocal(email, password)
+                loginLocal(telefono, password)
             }
         } catch (e: Exception) {
-            // Manejo local offline cuando no hay API activa
-            loginLocal(email, password)
+            // Fallback offline cuando no hay conexión a la API
+            loginLocal(telefono, password)
         }
     }
 
     suspend fun updateUser(updatedUser: UserAccount) = withContext(Dispatchers.IO) {
-        try {
-            apiService.updateProfile(updatedUser)
-        } catch (_: Exception) {
-            // Manejo offline silencioso
-        }
-        val index = localUsers.indexOfFirst { it.email.equals(updatedUser.email, ignoreCase = true) }
+        // Actualizar en lista local
+        val index = localUsers.indexOfFirst { it.telefono == updatedUser.telefono }
         if (index != -1) {
             localUsers[index] = updatedUser
         }
     }
 
-    private fun registerLocal(newUser: UserAccount): Result<UserAccount> {
-        val existing = localUsers.find { it.email.equals(newUser.email.trim(), ignoreCase = true) }
+    fun logout() {
+        RetrofitClient.authToken = null
+    }
+
+    // ─── Funciones de fallback local ──────────────────────────────────────────
+
+    private fun registerLocal(telefono: String, password: String, rol: String?): Result<UserAccount> {
+        val existing = localUsers.find { it.telefono == telefono.trim() }
         if (existing != null) {
-            return Result.failure(Exception("El correo electrónico ${newUser.email} ya está registrado."))
+            return Result.failure(Exception("El número de teléfono ${telefono} ya está registrado."))
         }
+        val newUser = UserAccount(
+            telefono = telefono.trim(),
+            rol = rol ?: "cliente",
+            estadoCuenta = "activo",
+            password = password
+        )
         localUsers.add(newUser)
         return Result.success(newUser)
     }
 
-    private fun loginLocal(email: String, password: String): Result<UserAccount> {
-        val found = localUsers.find { it.email.equals(email.trim(), ignoreCase = true) }
-            ?: return Result.failure(Exception("El correo electrónico no está registrado. Regístrate primero."))
+    private fun loginLocal(telefono: String, password: String): Result<UserAccount> {
+        val found = localUsers.find { it.telefono == telefono.trim() }
+            ?: return Result.failure(Exception("El número de teléfono no está registrado. Regístrate primero."))
 
         if (found.password != password) {
             return Result.failure(Exception("Contraseña incorrecta. Inténtalo de nuevo."))

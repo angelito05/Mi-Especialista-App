@@ -28,18 +28,21 @@ class AuthViewModel(
     var successNotification by mutableStateOf<String?>(null)
         private set
 
-    // Campos de Login
-    var loginEmail by mutableStateOf("")
+    var isLoading by mutableStateOf(false)
+        private set
+
+    // ─── Campos de Login ──────────────────────────────────────────────────────
+
+    var loginTelefono by mutableStateOf("")
         private set
     var loginPassword by mutableStateOf("")
         private set
     var loginPasswordVisible by mutableStateOf(false)
         private set
 
-    // Campos de Registro
-    var registerFullName by mutableStateOf("")
-        private set
-    var registerEmail by mutableStateOf("")
+    // ─── Campos de Registro ───────────────────────────────────────────────────
+
+    var registerTelefono by mutableStateOf("")
         private set
     var registerPassword by mutableStateOf("")
         private set
@@ -53,8 +56,10 @@ class AuthViewModel(
     val registerPasswordState: PasswordValidationState
         get() = validatePassword(registerPassword)
 
-    fun updateLoginEmail(email: String) {
-        loginEmail = email
+    // ─── Actualizadores de Login ──────────────────────────────────────────────
+
+    fun updateLoginTelefono(telefono: String) {
+        loginTelefono = telefono
         errorMessage = null
     }
 
@@ -67,13 +72,10 @@ class AuthViewModel(
         loginPasswordVisible = !loginPasswordVisible
     }
 
-    fun updateRegisterFullName(fullName: String) {
-        registerFullName = fullName
-        errorMessage = null
-    }
+    // ─── Actualizadores de Registro ───────────────────────────────────────────
 
-    fun updateRegisterEmail(email: String) {
-        registerEmail = email
+    fun updateRegisterTelefono(telefono: String) {
+        registerTelefono = telefono
         errorMessage = null
     }
 
@@ -95,6 +97,8 @@ class AuthViewModel(
         registerConfirmPasswordVisible = !registerConfirmPasswordVisible
     }
 
+    // ─── Navegación entre formularios ─────────────────────────────────────────
+
     fun switchToRegister() {
         authMode = AuthMode.REGISTER
         errorMessage = null
@@ -107,20 +111,25 @@ class AuthViewModel(
         successNotification = null
     }
 
+    // ─── Acciones de sesión ───────────────────────────────────────────────────
+
     fun submitLogin() {
+        val cleanTelefono = loginTelefono.trim()
         when {
-            loginEmail.isBlank() -> {
-                errorMessage = "Por favor ingresa tu correo electrónico."
+            cleanTelefono.isBlank() -> {
+                errorMessage = "Por favor ingresa tu número de teléfono."
             }
-            !android.util.Patterns.EMAIL_ADDRESS.matcher(loginEmail.trim()).matches() -> {
-                errorMessage = "Ingresa un correo electrónico válido."
+            cleanTelefono.length < 7 -> {
+                errorMessage = "Ingresa un número de teléfono válido (mínimo 7 dígitos)."
             }
             loginPassword.isBlank() -> {
                 errorMessage = "Por favor ingresa tu contraseña."
             }
             else -> {
                 viewModelScope.launch {
-                    val result = authRepository.loginUser(loginEmail, loginPassword)
+                    isLoading = true
+                    val result = authRepository.loginUser(cleanTelefono, loginPassword)
+                    isLoading = false
                     result.fold(
                         onSuccess = { user ->
                             errorMessage = null
@@ -136,18 +145,14 @@ class AuthViewModel(
     }
 
     fun submitRegister() {
-        val cleanName = registerFullName.trim()
-        val cleanEmail = registerEmail.trim()
+        val cleanTelefono = registerTelefono.trim()
 
         when {
-            cleanName.isBlank() -> {
-                errorMessage = "Por favor ingresa tu nombre completo."
+            cleanTelefono.isBlank() -> {
+                errorMessage = "Por favor ingresa tu número de teléfono."
             }
-            cleanEmail.isBlank() -> {
-                errorMessage = "Por favor ingresa tu correo electrónico."
-            }
-            !android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches() -> {
-                errorMessage = "Ingresa un correo electrónico válido."
+            cleanTelefono.length < 7 -> {
+                errorMessage = "Ingresa un número de teléfono válido (mínimo 7 dígitos)."
             }
             !registerPasswordState.isValid -> {
                 errorMessage = "La contraseña no cumple con todos los requisitos de seguridad."
@@ -157,20 +162,20 @@ class AuthViewModel(
             }
             else -> {
                 viewModelScope.launch {
-                    val newUser = UserAccount(
-                        fullName = cleanName,
-                        email = cleanEmail,
-                        password = registerPassword
+                    isLoading = true
+                    val result = authRepository.registerUser(
+                        telefono = cleanTelefono,
+                        password = registerPassword,
+                        rol = "cliente"
                     )
-                    val result = authRepository.registerUser(newUser)
+                    isLoading = false
                     result.fold(
                         onSuccess = { user ->
                             errorMessage = null
-                            loginEmail = user.email
-                            successNotification = "¡Registro exitoso para ${user.fullName}! Ahora puedes iniciar sesión."
+                            loginTelefono = user.telefono
+                            successNotification = "¡Registro exitoso! Ahora puedes iniciar sesión."
                             authMode = AuthMode.LOGIN
-                            registerFullName = ""
-                            registerEmail = ""
+                            registerTelefono = ""
                             registerPassword = ""
                             registerConfirmPassword = ""
                         },
@@ -184,6 +189,7 @@ class AuthViewModel(
     }
 
     fun logout() {
+        authRepository.logout()
         loggedInUser = null
         loginPassword = ""
         errorMessage = null
